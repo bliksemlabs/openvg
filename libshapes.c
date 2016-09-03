@@ -245,6 +245,12 @@ VGImage DecodeImage(int w, int h, const char *filename) {
 	return VG_INVALID_HANDLE;
 }
 
+// Display an image which has previously been decoded
+void DisplayImage(VGfloat x, VGfloat y, int w, int h, VGImage img) {
+	vgSetPixels(x, y, img, 0, 0, w, h);
+	vgDestroyImage(img);
+}
+
 // Image places an image at the specifed location
 void Image(VGfloat x, VGfloat y, int w, int h, const char *filename) {
 	VGImage img = DecodeImage(w, h, filename);
