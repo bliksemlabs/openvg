@@ -11,7 +11,6 @@
 #include <string.h>
 #include "VG/openvg.h"
 #include "VG/vgu.h"
-#include "fontinfo.h"
 #include "shapes.h"
 
 enum mediatype { MEDIA_IMG = 0, MEDIA_VIDEO };
@@ -153,7 +152,7 @@ static void processNode(xmlTextReaderPtr reader) {
 		if (next->type == MEDIA_IMG) {
 			fprintf(stderr, "Onscreen Image: %s\n", next->src);
 			Start(next->width, next->height);
-//			DisplayImage(next->x, next->y, next->width, next->height, next->img);
+			DisplayImage(next->x, next->y, next->width, next->height, next->img);
 			End();
 			gettimeofday(&next->start, NULL);
 		} else
