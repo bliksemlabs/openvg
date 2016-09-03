@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <termios.h>
 #include <assert.h>
-#include <jpeglib.h>
+#include "jpeg.h"
 #include "lodepng.h"
 #include "VG/openvg.h"
 #include "VG/vgu.h"
@@ -100,101 +100,72 @@ void unloadfont(VGPath * glyphs, int n) {
 	}
 }
 
-// createImageFromJpeg decompresses a JPEG image to the standard image format
-// source: https://github.com/ileben/ShivaVG/blob/master/examples/test_image.c
-VGImage createImageFromJpeg(const char *filename, int desired_width, int desired_height) {
-	FILE *infile;
-	struct jpeg_decompress_struct jdc;
-	struct jpeg_error_mgr jerr;
-	JSAMPARRAY buffer;
-	unsigned int bstride;
-	unsigned int bbpp;
+static OPENMAX_JPEG_DECODER *pDecoder = NULL;
 
-	VGImage img;
-	VGubyte *data;
-	unsigned int width;
-	unsigned int height;
-	unsigned int dstride;
-	unsigned int dbpp;
+VGImage createImageFromJpeg(const char *filename, size_t outputWidth, size_t outputHeight) {
+        char           *sourceImage;
+        size_t          imageSize;
+        int             s;
+        FILE           *fp = fopen(filename, "rb");
+        VGImage img;
 
-	VGubyte *brow;
-	VGubyte *drow;
-	unsigned int x;
-	unsigned int lilEndianTest = 1;
-	VGImageFormat rgbaFormat;
+        if (!fp) {
+                printf("createImageFromJpeg: File %s not found.\n", filename);
+                return VG_INVALID_HANDLE;
+        }
 
-	// Check for endianness
-	if (((unsigned char *)&lilEndianTest)[0] == 1)
-		rgbaFormat = VG_sABGR_8888;
-	else
-		rgbaFormat = VG_sRGBA_8888;
+        fseek(fp, 0L, SEEK_END);
+        imageSize = ftell(fp);
+        fseek(fp, 0L, SEEK_SET);
+        sourceImage = malloc(imageSize);
+        if (sourceImage == NULL) {
+                fclose(fp);
+                return VG_INVALID_HANDLE;
+        }
 
-	// Try to open image file
-	infile = fopen(filename, "rb");
-	if (infile == NULL) {
-		printf("Failed opening '%s' for reading!\n", filename);
-		return VG_INVALID_HANDLE;
-	}
-	// Setup default error handling
-	jdc.err = jpeg_std_error(&jerr);
-	jpeg_create_decompress(&jdc);
+        s = fread(sourceImage, 1, imageSize, fp);
+        fclose(fp);
 
-	// Set input file
-	jpeg_stdio_src(&jdc, infile);
+        if (s != imageSize) {
+                fprintf(stderr, "createImageFromJpeg: fread %s failed.\n", filename);
+                free(sourceImage);
+                fclose(fp);
+                return VG_INVALID_HANDLE;
+        }
 
-	// Read header and start
-	jpeg_read_header(&jdc, TRUE);
-	jpeg_start_decompress(&jdc);
-	width = jdc.output_width;
-	height = jdc.output_height;
+        if (pDecoder == NULL) {
+                s = setupOpenMaxJpegDecoder(&pDecoder);
 
-	// Allocate buffer using jpeg allocator
-	bbpp = jdc.output_components;
-	bstride = width * bbpp;
-	buffer = (*jdc.mem->alloc_sarray)
-	    ((j_common_ptr) & jdc, JPOOL_IMAGE, bstride, 1);
+                if (s != 0) {
+                        fprintf(stderr, "createImageFromJpeg: setupOpenMaxJpegDecoder %s failed.", filename);
+                        free(sourceImage);
+                        return VG_INVALID_HANDLE;
+                }
+        }
 
-	// Allocate image data buffer
-	dbpp = 4;
-	dstride = width * dbpp;
-	data = (VGubyte *) malloc(dstride * height);
+        s = decodeImage(pDecoder, sourceImage, imageSize, outputWidth, outputHeight);
+        free(sourceImage);
 
-	// Iterate until all scanlines processed
-	while (jdc.output_scanline < height) {
+        if (s != 0) {
+                fprintf(stderr, "createImageFromJpeg: decodeImage %s failed.\n", filename);
+                cleanup(pDecoder);
+                return VG_INVALID_HANDLE;
+        }
 
-		// Read scanline into buffer
-		jpeg_read_scanlines(&jdc, buffer, 1);
-		drow = data + (height - jdc.output_scanline) * dstride;
-		brow = buffer[0];
-		// Expand to RGBA
-		for (x = 0; x < width; ++x, drow += dbpp, brow += bbpp) {
-			switch (bbpp) {
-			case 4:
-				drow[0] = brow[0];
-				drow[1] = brow[1];
-				drow[2] = brow[2];
-				drow[3] = brow[3];
-				break;
-			case 3:
-				drow[0] = brow[0];
-				drow[1] = brow[1];
-				drow[2] = brow[2];
-				drow[3] = 255;
-				break;
-			}
-		}
-	}
+        size_t stStride;
+        VGImageFormat rgbaFormat = VG_sABGR_8888;
+        unsigned int remainder = outputWidth % 16;
+        if (remainder == 0)
+                stStride = (outputWidth * 4);
+        else
+                stStride = (outputWidth + (16 - remainder )) * 4;
 
-	// Create VG image
-	img = vgCreateImage(rgbaFormat, desired_width, desired_height, VG_IMAGE_QUALITY_BETTER);
-	vgImageSubData(img, data, dstride, rgbaFormat, 0, 0, width, height);
+        img = vgCreateImage(rgbaFormat, outputWidth, outputHeight, VG_IMAGE_QUALITY_BETTER);
+        vgImageSubData(img, &pDecoder->pOutputBufferHeader->pBuffer[stStride * (outputHeight)], stStride * -1, rgbaFormat, 0, 0, outputWidth, outputHeight);
 
-	// Cleanup
-	jpeg_destroy_decompress(&jdc);
-	fclose(infile);
-	free(data);
-
-	return img;
+        cleanup(pDecoder);
+        pDecoder = NULL;
+        return img;
 }
 
 // createImageFromPng decompresses a PNG image to the standard image format

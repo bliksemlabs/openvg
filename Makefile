@@ -1,5 +1,5 @@
-INCLUDEFLAGS=-I/opt/vc/include -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/interface/vcos/pthreads -fPIC
-LIBFLAGS=-L/opt/vc/lib -lEGL -lGLESv2 -ljpeg
+INCLUDEFLAGS=-I/opt/vc/include -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/src/hello_pi/libs/ilclient -DSTANDALONE -D__STDC_CONSTANT_MACROS -D__STDC_LIMIT_MACROS -DTARGET_POSIX -D_LINUX -fPIC -DPIC -D_REENTRANT -D_LARGEFILE64_SOURCE -D_FILE_OFFSET_BITS=64 -U_FORTIFY_SOURCE -Wall -g -DHAVE_LIBOPENMAX=2 -DOMX -DOMX_SKIP64BIT -ftree-vectorize -pipe -DUSE_EXTERNAL_OMX -DHAVE_LIBBCM_HOST -DUSE_EXTERNAL_LIBBCM_HOST -DUSE_VCHIQ_ARM -Wno-psabi -Wno-deprecated-declarations -fPIC
+LIBFLAGS=-L/opt/vc/lib -lEGL -lGLESv2
 FONTLIB=/usr/share/fonts/truetype/ttf-dejavu
 FONTFILES=DejaVuSans.inc  DejaVuSansMono.inc DejaVuSerif.inc
 all:	font2openvg fonts library	
@@ -9,6 +9,9 @@ libshapes.o:	libshapes.c shapes.h fontinfo.h fonts
 
 lodepng.o: lodepng.c lodepng.h
 	gcc -O2 -Wall $(INCLUDEFLAGS) -c lodepng.c
+
+jpeg.o: jpeg.c jpeg.h
+	gcc -O2 -Wall $(INCLUDEFLAGS) -c jpeg.c
 
 gopenvg:	openvg.go
 	go install .
@@ -34,8 +37,8 @@ clean:
 	rm -f *.o *.inc *.so font2openvg *.c~ *.h~
 	indent -linux -c 60 -brf -l 132  libshapes.c oglinit.c shapes.h fontinfo.h
 
-library: oglinit.o lodepng.o libshapes.o
-	gcc $(LIBFLAGS) -shared -o libshapes.so oglinit.o lodepng.o libshapes.o
+library: oglinit.o lodepng.o jpeg.o libshapes.o
+	gcc $(LIBFLAGS) -shared -o libshapes.so oglinit.o lodepng.o jpeg.o libshapes.o
 
 install:
 	install -m 755 -p font2openvg /usr/bin/
