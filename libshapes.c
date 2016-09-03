@@ -101,7 +101,7 @@ void unloadfont(VGPath * glyphs, int n) {
 
 // createImageFromJpeg decompresses a JPEG image to the standard image format
 // source: https://github.com/ileben/ShivaVG/blob/master/examples/test_image.c
-VGImage createImageFromJpeg(const char *filename) {
+VGImage createImageFromJpeg(const char *filename, size_t outputWidth, size_t outputHeight) {
 	FILE *infile;
 	struct jpeg_decompress_struct jdc;
 	struct jpeg_error_mgr jerr;
@@ -185,7 +185,7 @@ VGImage createImageFromJpeg(const char *filename) {
 	}
 
 	// Create VG image
-	img = vgCreateImage(rgbaFormat, width, height, VG_IMAGE_QUALITY_BETTER);
+	img = vgCreateImage(rgbaFormat, outputWidth, outputHeight, VG_IMAGE_QUALITY_BETTER);
 	vgImageSubData(img, data, dstride, rgbaFormat, 0, 0, width, height);
 
 	// Cleanup
@@ -206,9 +206,21 @@ void makeimage(VGfloat x, VGfloat y, int w, int h, VGubyte * data) {
 	vgDestroyImage(img);
 }
 
+// Decode image and return it to be placed on screen later
+VGImage DecodeImage(int w, int h, const char *filename) {
+	size_t len = strlen(filename);
+	if (len > 4) {
+		if (!strcasecmp(filename + len - 4, ".jpg")) {
+			return createImageFromJpeg(filename, w, h);
+		}
+	}
+
+	return VG_INVALID_HANDLE;
+}
+
 // Image places an image at the specifed location
 void Image(VGfloat x, VGfloat y, int w, int h, const char *filename) {
-	VGImage img = createImageFromJpeg(filename);
+	VGImage img = DecodeImage(w, h, filename);
 	vgSetPixels(x, y, img, 0, 0, w, h);
 	vgDestroyImage(img);
 }
