@@ -1,7 +1,10 @@
 INCLUDEFLAGS=-I/opt/vc/include -I/opt/vc/include/interface/vmcs_host/linux -I/opt/vc/include/interface/vcos/pthreads -I..
 LIBFLAGS=-L/opt/vc/lib -lEGL -lGLESv2 -lbcm_host -lpthread  -ljpeg
 
-all: shapedemo hellovg mouse-hellovg particles screensize clip
+all: shapedemo hellovg mouse-hellovg particles screensize clip simplesmil
+
+simplesmil:	simplesmil.c ../libshapes.o ../oglinit.o
+	gcc -Wall $(INCLUDEFLAGS) `xml2-config --cflags` -o shapedemo simplesmil.c ../libshapes.o ../oglinit.o ../lodepng.o $(LIBFLAGS) `xml2-config --libs`
 
 shapedemo:	shapedemo.c ../libshapes.o ../oglinit.o
 	gcc -Wall $(INCLUDEFLAGS)  -o shapedemo shapedemo.c ../libshapes.o ../oglinit.o ../lodepng.o $(LIBFLAGS)
