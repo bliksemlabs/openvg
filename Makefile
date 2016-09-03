@@ -7,6 +7,9 @@ all:	font2openvg fonts library
 libshapes.o:	libshapes.c shapes.h fontinfo.h fonts
 	gcc -O2 -Wall $(INCLUDEFLAGS) -c libshapes.c
 
+lodepng.o: lodepng.c lodepng.h
+	gcc -O2 -Wall $(INCLUDEFLAGS) -c lodepng.c
+
 gopenvg:	openvg.go
 	go install .
 
@@ -31,8 +34,8 @@ clean:
 	rm -f *.o *.inc *.so font2openvg *.c~ *.h~
 	indent -linux -c 60 -brf -l 132  libshapes.c oglinit.c shapes.h fontinfo.h
 
-library: oglinit.o libshapes.o
-	gcc $(LIBFLAGS) -shared -o libshapes.so oglinit.o libshapes.o
+library: oglinit.o lodepng.o libshapes.o
+	gcc $(LIBFLAGS) -shared -o libshapes.so oglinit.o lodepng.o libshapes.o
 
 install:
 	install -m 755 -p font2openvg /usr/bin/

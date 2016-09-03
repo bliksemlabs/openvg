@@ -10,6 +10,7 @@
 #include <termios.h>
 #include <assert.h>
 #include <jpeglib.h>
+#include "lodepng.h"
 #include "VG/openvg.h"
 #include "VG/vgu.h"
 #include "EGL/egl.h"
@@ -101,7 +102,7 @@ void unloadfont(VGPath * glyphs, int n) {
 
 // createImageFromJpeg decompresses a JPEG image to the standard image format
 // source: https://github.com/ileben/ShivaVG/blob/master/examples/test_image.c
-VGImage createImageFromJpeg(const char *filename, size_t outputWidth, size_t outputHeight) {
+VGImage createImageFromJpeg(const char *filename, int desired_width, int desired_height) {
 	FILE *infile;
 	struct jpeg_decompress_struct jdc;
 	struct jpeg_error_mgr jerr;
@@ -185,13 +186,33 @@ VGImage createImageFromJpeg(const char *filename, size_t outputWidth, size_t out
 	}
 
 	// Create VG image
-	img = vgCreateImage(rgbaFormat, outputWidth, outputHeight, VG_IMAGE_QUALITY_BETTER);
+	img = vgCreateImage(rgbaFormat, desired_width, desired_height, VG_IMAGE_QUALITY_BETTER);
 	vgImageSubData(img, data, dstride, rgbaFormat, 0, 0, width, height);
 
 	// Cleanup
 	jpeg_destroy_decompress(&jdc);
 	fclose(infile);
 	free(data);
+
+	return img;
+}
+
+// createImageFromPng decompresses a PNG image to the standard image format
+VGImage createImageFromPng(const char *filename, int desired_width, int desired_height) {
+	VGImage img = 0;
+	unsigned int error;
+	unsigned int width, height;
+	unsigned char* image;
+	error = lodepng_decode32_file(&image, &width, &height, filename);
+	if (error) {
+		fprintf(stderr, "createImageFromPNG: error %u: %s\n", error, lodepng_error_text(error));
+		return VG_INVALID_HANDLE;
+	}
+	unsigned int stride = width * 4;
+
+	img = vgCreateImage(VG_sABGR_8888, desired_width, desired_height, VG_IMAGE_QUALITY_BETTER);
+	vgImageSubData(img, &image[height * stride], stride * -1, VG_sABGR_8888, 0, 0, width-1, height-1);
+	free(image);
 
 	return img;
 }
@@ -210,8 +231,14 @@ void makeimage(VGfloat x, VGfloat y, int w, int h, VGubyte * data) {
 VGImage DecodeImage(int w, int h, const char *filename) {
 	size_t len = strlen(filename);
 	if (len > 4) {
+		/* TODO: the problem of rescaling is not solved yet */
+
 		if (!strcasecmp(filename + len - 4, ".jpg")) {
 			return createImageFromJpeg(filename, w, h);
+		} else
+
+		if (!strcasecmp(filename + len - 4, ".png")) {
+			return createImageFromPng(filename, w, h);
 		}
 	}
 
